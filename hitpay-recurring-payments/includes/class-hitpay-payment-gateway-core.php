@@ -386,7 +386,7 @@ class HitPay_Payment_Gateway_Core extends WC_Payment_Gateway {
 	 */
 	public function handle_first_recurring_payment( $order_id ) {
 
-		$params = [ 'order-received', 'key', 'type', 'reference', 'status' ];
+		$params = [ 'key', 'type', 'reference', 'status' ];
 
 		// Skip processing if parameters are absent:
 		if ( array_diff_key( array_flip( $params ), $_GET ) ) {
