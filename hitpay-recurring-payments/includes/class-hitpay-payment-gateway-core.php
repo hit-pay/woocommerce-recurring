@@ -763,4 +763,86 @@ class HitPay_Payment_Gateway_Core extends WC_Payment_Gateway {
 
         return $order_statuses;
     }
+    
+    /**
+     * Process a cancelled subscription payment.
+     *
+     * @param WC_Subscription  $subscription  object representing the subscription that just had its status changed.
+     */
+    public function process_cancelled_subscription_payment( $subscription) {
+        $recurring_billing_id = get_post_meta($subscription->get_id(), '_hitpay_recurring_billing_id', true );
+        
+        if ( ! $recurring_billing_id ) {
+            return false;
+        }
+
+        $request = new HitPay_Cancel_Subscription_Request( $this->get_gateway_api() );
+
+        $response = $request
+            ->set_payment_id( $recurring_billing_id )
+            ->create();
+
+        if ( ! $response ) {
+             $this->log('Empty Response');
+            return false;
+        }
+        
+        $order = $subscription->order;
+
+        if ($order && $order->get_id() > 0) {
+
+            $message = "Subscription cancelled successfully. Canceled Subscription Reference ID: {$response->id}. "
+                . "Status: {$response->status}.";
+
+            $order->add_order_note( $message );
+        }
+
+        return true;
+    }
+    
+    public function option_exists($option_name) 
+    {
+        $value = get_option($option_name);
+        return $value;
+    }
+    
+    public function log($content)
+    {
+        $debug = 'yes';
+        if ($debug == 'yes') {
+            if (!$this->option_exists("woocommerce_hitpayrecurring_logfile_prefix")) {
+                $logfile_prefix = md5(uniqid(wp_rand(), true));
+                update_option('woocommerce_hitpayrecurring_logfile_prefix', $logfile_prefix);
+            } else {
+                $logfile_prefix = get_option('woocommerce_hitpayrecurring_logfile_prefix');
+                if (empty($logfile_prefix)) {
+                    $logfile_prefix = md5(uniqid(wp_rand(), true));
+                    update_option('woocommerce_hitpayrecurring_logfile_prefix', $logfile_prefix);
+                }
+            }
+			
+            $filename = 'hitpayrecurring_debug_'.$logfile_prefix.'.log';
+
+            $file = ABSPATH .'wp-content/uploads/wc-logs/'.$filename;
+			
+            try {
+                // @codingStandardsIgnoreStart
+                /*
+                We tried to use WP_Filesystem methods.
+                But WP_Filesystem put_contents method just writing the code not appending to the file.
+                So we have only the last written content in the file.
+                Because in the below method fopen initiated with 'wb' mode instead of 'a' or 'a+', otherwise this core method must be modified to able to pass the file open mode from the caller.
+                public function put_contents( $file, $contents, $mode = false ) {
+                $fp = @fopen( $file, 'wb' );
+                */
+                $fp = fopen($file, 'a+');
+                if ($fp) {
+                    fwrite($fp, "\n".gmdate("Y-m-d H:i:s").": ".print_r($content, true));
+                    fclose($fp);
+                }
+		// @codingStandardsIgnoreEnd
+				
+            } catch (\Exception $e) {}
+        }
+    }
 }
