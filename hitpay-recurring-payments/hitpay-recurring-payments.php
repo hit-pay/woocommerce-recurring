@@ -5,17 +5,17 @@
  * @package                 HitPayRecurringPayments
  * @author                  HitPay Payment Solutions Pte Ltd
  * @link                    https://github.com/hit-pay/woocommerce-recurring
- * @copyright               2022 HitPay Payment Solutions Pte Ltd
+ * @copyright               2024 HitPay Payment Solutions Pte Ltd
  *
  * @wordpress-plugin
  * Plugin Name:             HitPay Recurring Payments
  * Plugin URI:              https://wordpress.org/plugins/hitpay-recurring-payments/
  * Description:             HitPay Recurring Payments plugin allows your WooCommerce store to accept PayNow QR, Cards, Apple Pay, Google Pay, WeChatPay, AliPay and GrabPay Payments.
- * Version:                 1.0.0
+ * Version:                 1.1.2
  * Requires at least:       4.0
- * Tested up to:            5.8.2
+ * Tested up to:            6.6.1
  * WC requires at least:    2.4
- * WC tested up to:         5.8.1
+ * WC tested up to:         9.1.4
  * Requires PHP:            5.5
  * Author:                  HitPay Payment Solutions Pte Ltd
  * Author URI:              https://www.hitpayapp.com
@@ -116,11 +116,17 @@ function initiate_hitpay_payment_gateway() {
             add_action( 'woocommerce_api_hitpay-recurring-payments',
                 [ $this->gateway, 'handle_webhook_recurring_payment' ] );
 
-			/**
-			 * Add a handler for the first recurring payment (after adding card information).
-			 */
-			add_action('woocommerce_thankyou_' . $this->gateway->id,
-				[ $this->gateway, 'handle_first_recurring_payment' ] );
+            /**
+             * Add a handler for the first recurring payment (after adding card information).
+             */
+            add_action('woocommerce_thankyou_' . $this->gateway->id,
+                    [ $this->gateway, 'handle_first_recurring_payment' ] );
+            
+             /**
+             * Add a handler for canceled subscription payments.
+             */
+            add_action( 'woocommerce_subscription_status_cancelled',
+            [ $this->gateway, 'process_cancelled_subscription_payment' ], 10, 1 );
         }
 
         /**
@@ -148,6 +154,8 @@ function initiate_hitpay_payment_gateway() {
             require_once plugin_dir_path( __FILE__ ) . 'includes/class-hitpay-recurring-billing-request.php';
 
             require_once plugin_dir_path( __FILE__ ) . 'includes/class-hitpay-security.php';
+            
+            require_once plugin_dir_path( __FILE__ ) . 'includes/class-hitpay-cancel-subscription.php';
 
             require_once plugin_dir_path( __FILE__ ) . 'includes/class-hitpay-payment-gateway-core.php';
 

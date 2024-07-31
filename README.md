@@ -75,3 +75,16 @@ When you are ready click the **Enable Live Mode** checkbox. Click the **Save Cha
 3. Navigate to **WooCommerce** > **Settings** > **Payments** and activate the payment method.
 
 ![setting-up-the-plugin-3.png](docs/setting-up-the-plugin-3.png)
+
+== Changelog ==
+
+= 1.1.2 =
+* Jul 30, 2024
+* Cancel Subscription in the HitPay when subscription is canceled in the WooCommerce
+* Plugin tested on WooCommerce Subscriptions 6.5.0
+* Plugin tested on WooCommerce 9.1.4
+* Plugin tested on WordPress 6.6.1
+
+= 1.1.0 =
+* Initial release.
+* Plugin tested on WordPress 6.5.5
