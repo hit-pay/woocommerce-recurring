@@ -122,13 +122,17 @@ class HitPay_Payment_Gateway_Core extends WC_Payment_Gateway {
      * @return array
      */
     public function process_regular_payment( WC_Order $order ) {
-
+        $this->log($order->get_id().' => process_regular_payment triggered');
         $customer_full_name = $order->get_billing_first_name() . ' '
             . $order->get_billing_last_name();
 
         $webhook_url = add_query_arg( 'wc-api', 'hitpay-regular-payments', site_url( '/' ) );
 
         $payment_request = new HitPay_Payment_Request( $this->get_gateway_api() );
+        
+        $this->log('hitpay_set_amount: '.$order->get_total());
+        $this->log('hitpay_set_reference: '.$order->get_order_number());
+        $this->log('hitpay_set_webhook: '.$webhook_url);
 
         $payment_request
             ->set_amount( $order->get_total() )
@@ -158,6 +162,9 @@ class HitPay_Payment_Gateway_Core extends WC_Payment_Gateway {
         if ( ! $response || $response->status != 'pending' ) {
             return [ 'result' => 'error' ];
         }
+        
+        $this->log('hitpay_payment_id: '.$response->id);
+        $this->log('hitpay_payment_status: '.$response->status);
 
         WC()->cart->empty_cart();
 
@@ -182,7 +189,8 @@ class HitPay_Payment_Gateway_Core extends WC_Payment_Gateway {
      * @throws Exception
      */
     public function process_subscription_payment( WC_Order $order ) {
-
+        $this->log($order->get_id().' => process_subscription_payment triggered');
+        
         $customer_full_name = $order->get_billing_first_name() . ' '
             . $order->get_billing_last_name();
 
@@ -195,7 +203,13 @@ class HitPay_Payment_Gateway_Core extends WC_Payment_Gateway {
 
         $webhook_url = add_query_arg( 'wc-api', 'hitpay-recurring-payments', site_url( '/' ) );
 
-		$subscription = current( wcs_get_subscriptions_for_order( $order ) );
+	$subscription = current( wcs_get_subscriptions_for_order( $order ) );
+        
+        $this->log('hitpay_recurring_set_amount: '.$order->get_total());
+        $this->log('hitpay_recurring_set_reference: '.$order->get_order_number());
+        $this->log('hitpay_recurring_set_start_date: '.$subscription_starts_from->format( 'Y-m-d' ));
+        $this->log('hitpay_recurring_set_webhook: '.$webhook_url);
+        $this->log('hitpay_recurring subscription id: '.$subscription->get_id());
 
         $response = $recurring_billing_request
             ->set_name( 'Subscription #' . $subscription->get_order_number() )
@@ -213,17 +227,20 @@ class HitPay_Payment_Gateway_Core extends WC_Payment_Gateway {
         if ( ! $response || $response->status != 'scheduled' ) {
             return [ 'result' => 'error' ];
         }
+        
+        $this->log('hitpay_recurring_billing_id: '.$response->id);
+        $this->log('hitpay_recurring_status: '.$response->status);
 
-		/**
-		 * Save the recurring billing ID.
-		 * It's used for future automatic payments.
-		 */
-		add_post_meta(
-			$subscription->get_id(),
-			'_hitpay_recurring_billing_id',
-			$response->id,
-			true
-		);
+        /**
+         * Save the recurring billing ID.
+         * It's used for future automatic payments.
+         */
+        add_post_meta(
+                $subscription->get_id(),
+                '_hitpay_recurring_billing_id',
+                $response->id,
+                true
+        );
 
         WC()->cart->empty_cart();
 
@@ -248,9 +265,10 @@ class HitPay_Payment_Gateway_Core extends WC_Payment_Gateway {
      * @return void
      */
     public function handle_webhook_regular_payment() {
-
+        $this->log('handle_webhook_regular_payment triggered');
         $data = $_POST;
-
+        $this->log($data);
+        
         $parameters = [
             'reference_number',
             'payment_id',
@@ -274,6 +292,7 @@ class HitPay_Payment_Gateway_Core extends WC_Payment_Gateway {
         unset( $data[ 'hmac' ] );
 
         if ( HitPay_Security::get_signature( $this->get_option( 'api_salt' ), $data ) != $hmac ) {
+            $this->log('Security check hmac failed');
             return;
         }
 
@@ -282,6 +301,7 @@ class HitPay_Payment_Gateway_Core extends WC_Payment_Gateway {
         $order = wc_get_order( $order_id );
 
         if ( ! $order || ! $order->needs_payment() ) {
+            $this->log('Skip if the order is already paid');
             return;
         }
 
@@ -315,8 +335,10 @@ class HitPay_Payment_Gateway_Core extends WC_Payment_Gateway {
      * @return void
      */
     public function handle_webhook_recurring_payment() {
-
+        $this->log('handle_webhook_recurring_payment triggered');
         $data = $_POST;
+        
+        $this->log($data);
 
         $parameters = [
             'payment_id',
@@ -343,6 +365,7 @@ class HitPay_Payment_Gateway_Core extends WC_Payment_Gateway {
         unset( $data[ 'hmac' ] );
 
         if ( HitPay_Security::get_signature( $this->get_option( 'api_salt' ), $data ) != $hmac ) {
+            $this->log('Security check hmac failed');
             return;
         }
 
@@ -351,6 +374,7 @@ class HitPay_Payment_Gateway_Core extends WC_Payment_Gateway {
         $order = wc_get_order( $order_id );
 
         if ( ! $order || ! $order->needs_payment() ) {
+            $this->log('Skip if the order is already paid');
             return;
         }
 
@@ -378,58 +402,77 @@ class HitPay_Payment_Gateway_Core extends WC_Payment_Gateway {
         }
     }
 
-	/**
-	 * Process the first recurring payment
-	 * (after adding card information).
-	 *
-	 * @param integer $order_id Order ID.
-	 */
-	public function handle_first_recurring_payment( $order_id ) {
+    /**
+     * Process the first recurring payment
+     * (after adding card information).
+     *
+     * @param integer $order_id Order ID.
+     */
+    public function handle_first_recurring_payment( $order_id ) {
+        $this->log($order_id.' => handle_first_recurring_payment triggered');
 
-		$params = [ 'key', 'type', 'reference', 'status' ];
+        if ($order_id > 0) {
+            $HitPay_webhook_triggered = (int)get_post_meta( $order_id, 'HitPay_FRP_Triggered', true );
+            if ($HitPay_webhook_triggered == 1) {
+                $this->log($order_id.' => handle_first_recurring_payment already triggered');
+                return false;
+            }
+        }
+        
+        update_post_meta( $order_id, 'HitPay_FRP_Triggered', 1 );
 
-		// Skip processing if parameters are absent:
-		if ( array_diff_key( array_flip( $params ), $_GET ) ) {
-			return false;
-		}
+        $params = [ 'key', 'type', 'reference', 'status' ];
 
-		// We process only recurring payments:
-		if ( $_GET[ 'type' ] != 'recurring' ||  $_GET[ 'status' ] != 'active' ) {
-			return false;
-		}
+        // Skip processing if parameters are absent:
+        if ( array_diff_key( array_flip( $params ), $_GET ) ) {
+                return false;
+        }
 
-		$order = wc_get_order( $order_id );
+        $this->log($_GET);
 
-		// Skip if the order is already paid:
-		if ( ! $order || ! $order->needs_payment() ) {
-			return false;
-		}
+        // We process only recurring payments:
+        if ( $_GET[ 'type' ] != 'recurring' ||  $_GET[ 'status' ] != 'active' ) {
+                return false;
+        }
 
-		// Security check:
-		if ( $_GET[ 'key' ] != $order->get_order_key() ) {
-			return false;
-		}
+        $order = wc_get_order( $order_id );
 
-		$subscription = current( wcs_get_subscriptions_for_order( $order ) );
+        // Skip if the order is already paid:
+        if ( ! $order || ! $order->needs_payment() ) {
+            $this->log('Skip if the order is already paid');
+            return false;
+        }
 
-		$recurring_billing_id = $subscription->get_meta( '_hitpay_recurring_billing_id' );
+        // Security check:
+        if ( $_GET[ 'key' ] != $order->get_order_key() ) {
+            $this->log('Security check failed');
+            return false;
+        }
 
-		if ( ! $recurring_billing_id ) {
-			return false;
-		}
+        $subscription = current( wcs_get_subscriptions_for_order( $order ) );
+        $this->log('handle_first_recurring_payment subscription id: '.$subscription->get_id());
+        $recurring_billing_id = get_post_meta( $subscription->get_id(), '_hitpay_recurring_billing_id', true );
 
-		$recurring_billing_request = new HitPay_Recurring_Billing_Request( $this->get_gateway_api() );
+        $this->log('hitpay_recurring_billing_id: '.$recurring_billing_id);
 
-		$response = $recurring_billing_request
-			->set_recurring_billing_id( $recurring_billing_id )
-			->set_amount( $order->get_total() )
-			->set_currency( $order->get_currency() )
-			->charge();
+        if ( ! $recurring_billing_id ) {
+                return false;
+        }
 
-		if ( $response && $response->status == 'succeeded' ) {
-			$this->payment_complete( $order );
-		}
-	}
+        $recurring_billing_request = new HitPay_Recurring_Billing_Request( $this->get_gateway_api() );
+
+        $response = $recurring_billing_request
+                ->set_recurring_billing_id( $recurring_billing_id )
+                ->set_amount( $order->get_total() )
+                ->set_currency( $order->get_currency() )
+                ->charge();
+
+        $this->log($response);
+
+        if ( $response && $response->status == 'succeeded' ) {
+            $this->payment_complete( $order );
+        }
+    }
 
     /**
      * Process a scheduled subscription payment.
@@ -438,8 +481,10 @@ class HitPay_Payment_Gateway_Core extends WC_Payment_Gateway {
      * @param WC_Order $order   A WC_Order object created to record the renewal payment.
      */
     public function process_scheduled_subscription_payment( $amount, $order ) {
-
+        $this->log($order->get_id().' => process_scheduled_subscription_payment triggered');
         $recurring_billing_id = $order->get_meta( '_hitpay_recurring_billing_id' );
+        
+        $this->log('hitpay_recurring_billing_id: '.$recurring_billing_id);
 
         if ( ! $recurring_billing_id ) {
             $order->update_status( 'failed' );
@@ -454,8 +499,10 @@ class HitPay_Payment_Gateway_Core extends WC_Payment_Gateway {
             ->set_currency( $order->get_currency() )
             ->charge();
 
+        $this->log($response);
+        
         if ( $response && $response->status == 'succeeded' ) {
-			$this->payment_complete( $order );
+            $this->payment_complete( $order );
         }
     }
 
@@ -471,7 +518,7 @@ class HitPay_Payment_Gateway_Core extends WC_Payment_Gateway {
      * @return boolean              True or false based on success, or a WP_Error object.
      */
     public function process_refund( $order_id, $amount = null, $reason = '' ) {
-
+        $this->log($order_id.' => process_refund triggered');
         $order = wc_get_order( $order_id );
 
         if ( 0 == $amount || ! $order ) {
@@ -483,6 +530,8 @@ class HitPay_Payment_Gateway_Core extends WC_Payment_Gateway {
         if ( ! $payment_id ) {
             return false;
         }
+        
+        $this->log('hitpay_payment_id: '.$payment_id);
 
         $refund_request = new HitPay_Refund_Request( $this->get_gateway_api() );
 
@@ -497,7 +546,7 @@ class HitPay_Payment_Gateway_Core extends WC_Payment_Gateway {
 
         $message = "Refund was successful. Refund reference ID: $response->id. "
             . "Amount: $response->amount_refunded " . strtoupper( $response->currency ) . '.';
-
+        $this->log($message);
         $order->add_order_note( $message );
 
         return true;
@@ -770,12 +819,15 @@ class HitPay_Payment_Gateway_Core extends WC_Payment_Gateway {
      * @param WC_Subscription  $subscription  object representing the subscription that just had its status changed.
      */
     public function process_cancelled_subscription_payment( $subscription) {
+        $this->log('process_cancelled_subscription_payment triggered');
         $recurring_billing_id = get_post_meta($subscription->get_id(), '_hitpay_recurring_billing_id', true );
         
         if ( ! $recurring_billing_id ) {
             return false;
         }
-
+        
+        $this->log('hitpay_recurring_billing_id: '.$recurring_billing_id);
+        
         $request = new HitPay_Cancel_Subscription_Request( $this->get_gateway_api() );
 
         $response = $request
@@ -793,7 +845,7 @@ class HitPay_Payment_Gateway_Core extends WC_Payment_Gateway {
 
             $message = "Subscription cancelled successfully. Canceled Subscription Reference ID: {$response->id}. "
                 . "Status: {$response->status}.";
-
+            $this->log($message);
             $order->add_order_note( $message );
         }
 

@@ -78,6 +78,15 @@ When you are ready click the **Enable Live Mode** checkbox. Click the **Save Cha
 
 == Changelog ==
 
+= 1.1.3 =
+* Aug 18, 2024
+* Added logs to the all the actions (Not logging the personal information)
+* Fixed first time charge error
+* Fixed multiple times charging the card for the first time
+* Plugin tested on WooCommerce Subscriptions 6.5.0
+* Plugin tested on WooCommerce 9.1.4
+* Plugin tested on WordPress 6.6.1
+
 = 1.1.2 =
 * Jul 30, 2024
 * Cancel Subscription in the HitPay when subscription is canceled in the WooCommerce
