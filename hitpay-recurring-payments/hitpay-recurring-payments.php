@@ -11,7 +11,7 @@
  * Plugin Name:             HitPay Recurring Payments
  * Plugin URI:              https://wordpress.org/plugins/hitpay-recurring-payments/
  * Description:             HitPay Recurring Payments plugin allows your WooCommerce store to accept PayNow QR, Cards, Apple Pay, Google Pay, WeChatPay, AliPay and GrabPay Payments.
- * Version:                 1.1.2
+ * Version:                 1.1.3
  * Requires at least:       4.0
  * Tested up to:            6.6.1
  * WC requires at least:    2.4
