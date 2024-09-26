@@ -78,6 +78,13 @@ When you are ready click the **Enable Live Mode** checkbox. Click the **Save Cha
 
 == Changelog ==
 
+= 1.1.4 =
+* Sep 26, 2024
+* Upgrade to compatible with Checkout Blocks
+* Plugin tested on WooCommerce Subscriptions 6.5.0
+* Plugin tested on WooCommerce 9.3.3
+* Plugin tested on WordPress 6.6.2
+
 = 1.1.3 =
 * Aug 18, 2024
 * Added logs to the all the actions (Not logging the personal information)

@@ -158,7 +158,9 @@ class HitPay_Payment_Gateway_Core extends WC_Payment_Gateway {
 		}
 
 		$response = $payment_request->create();
-
+                
+                $this->log($response);
+                
         if ( ! $response || $response->status != 'pending' ) {
             return [ 'result' => 'error' ];
         }
