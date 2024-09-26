@@ -11,11 +11,11 @@
  * Plugin Name:             HitPay Recurring Payments
  * Plugin URI:              https://wordpress.org/plugins/hitpay-recurring-payments/
  * Description:             HitPay Recurring Payments plugin allows your WooCommerce store to accept PayNow QR, Cards, Apple Pay, Google Pay, WeChatPay, AliPay and GrabPay Payments.
- * Version:                 1.1.3
+ * Version:                 1.1.4
  * Requires at least:       4.0
- * Tested up to:            6.6.1
+ * Tested up to:            6.6.2
  * WC requires at least:    2.4
- * WC tested up to:         9.1.4
+ * WC tested up to:         9.3.3
  * Requires PHP:            5.5
  * Author:                  HitPay Payment Solutions Pte Ltd
  * Author URI:              https://www.hitpayapp.com
@@ -32,6 +32,10 @@
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
+
+define('HIT_PAY_VERSION', '1.1.4');
+define('HIT_PAY_PLUGIN_URL', plugin_dir_url(__FILE__));
+define('HIT_PAY_PLUGIN_PATH', plugin_dir_path(__FILE__));
 
 /**
  * This function contains all the necessary logic of the plugin.
@@ -204,3 +208,16 @@ function initiate_hitpay_payment_gateway() {
 }
 
 add_action( 'plugins_loaded', 'initiate_hitpay_payment_gateway' );
+
+add_action( 'woocommerce_blocks_loaded', 'woocommerce_hit_pay_blocks_support' );
+function woocommerce_hit_pay_blocks_support() {
+    if ( class_exists( 'Automattic\WooCommerce\Blocks\Payments\Integrations\AbstractPaymentMethodType' ) ) {
+        require_once plugin_dir_path( __FILE__ ) . 'includes/class-hitpay-payment-gateway-blocks.php';
+        add_action(
+            'woocommerce_blocks_payment_method_type_registration',
+            function( Automattic\WooCommerce\Blocks\Payments\PaymentMethodRegistry $payment_method_registry ) {
+                $payment_method_registry->register( new HitPay_Payment_Gateway_Blocks );
+            }
+        );
+    }
+}
